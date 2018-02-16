@@ -1,0 +1,21 @@
+{
+  "name": "pubsjs",
+  "description": "Kopano API Pubs Javascript client library",
+  "author": "Kopano b.v. <info@kopano.com>",
+  "license": "MIT",
+  "version": "0.4.1",
+  "main": "dist/kwm.js",
+  "scripts": {
+    "prepublish": "webpack --display-error-details --verbose"
+  },
+  "devDependencies": {
+    "git-revision-webpack-plugin": "^2.5.1",
+    "license-webpack-plugin": "^1.1.1",
+    "ts-loader": "^3.5.0",
+    "tslint": "^5.9.1",
+    "tslint-loader": "^3.5.3",
+    "typescript": "^2.7.2",
+    "uglifyjs-webpack-plugin": "^1.1.8",
+    "webpack": "^3.11.0"
+  }
+}
