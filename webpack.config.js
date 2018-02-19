@@ -31,7 +31,7 @@ module.exports = {
 		filename: 'pubs.js',
 		path: path.resolve(__dirname, 'dist'),
 		publicPath: '/dist/',
-		library: 'pubs',
+		library: 'Pubs',
 		libraryExport: 'Pubs',
 		libraryTarget: 'umd',
 		umdNamedDefine: true
