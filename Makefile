@@ -1,4 +1,4 @@
-PACKAGE_NAME = pubjs
+PACKAGE_NAME = pubsjs
 
 # Tools
 
