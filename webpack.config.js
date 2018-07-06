@@ -29,8 +29,8 @@ module.exports = {
 	],
 	output: {
 		filename: 'pubs.js',
-		path: path.resolve(__dirname, 'dist'),
-		publicPath: '/dist/',
+		path: path.resolve(__dirname, 'umd'),
+		publicPath: '/umd/',
 		library: 'Pubs',
 		libraryExport: 'Pubs',
 		libraryTarget: 'umd',
@@ -65,7 +65,7 @@ module.exports = {
 		new UglifyJsPlugin({
 			sourceMap: true,
 			uglifyOptions: {
-				ecma: 6,
+				ecma: 8,
 				warnings: true
 			}
 		}),
@@ -77,7 +77,7 @@ module.exports = {
 			unacceptablePattern: /GPL/,
 			abortOnUnacceptableLicense: true,
 			perChunkOutput: false,
-			outputFilename: 'pubsjs.3rdpartylicenses.txt'
+			outputFilename: '../NOTICES.txt'
 		}),
 		new BannerPlugin(
 			fs.readFileSync(path.resolve(__dirname, 'LICENSE.txt')).toString()
