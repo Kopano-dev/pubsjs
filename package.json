@@ -3,7 +3,7 @@
   "description": "Kopano API Pubs Javascript client library",
   "author": "Kopano b.v. <info@kopano.com>",
   "license": "MIT",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "main": "umd/pubs.js",
   "files": [
     "umd",
