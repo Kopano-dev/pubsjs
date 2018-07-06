@@ -4,8 +4,8 @@
 /docs
 /.version
 /NOTICES.txt
-npm-debug.log*                                                                  
-yarn-debug.log*                                                                 
+npm-debug.log*
+yarn-debug.log*
 yarn-error.log*
 /.yarninstall
 
@@ -15,4 +15,3 @@ yarn-error.log*
 # misc
 .DS_Store
 .env.local
-
