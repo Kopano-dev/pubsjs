@@ -13,15 +13,15 @@
 
 import {
 	PubsErrorEvent,
-	PubsStreamEvent,
 	PubsStateChangedEvent,
+	PubsStreamEvent,
 } from './events';
 import {
+	IPubsDataError,
 	IStreamEnvelope,
 	IStreamInfo,
-	IStreamWebsocketConnectResponse,
 	IStreamReplyTimeoutRecord,
-	IPubsDataError,
+	IStreamWebsocketConnectResponse,
 	PubsDataError,
 } from './models';
 import {
@@ -43,18 +43,18 @@ export interface IPubsOptions {
 	streamAckTimeout: number;
 }
 
-const PubsDefaultOptions : IPubsOptions = {
-	authorizationValue: '',
+const PubsDefaultOptions: IPubsOptions = {
 	authorizationType: authorizationTypeBearer,
+	authorizationValue: '',
 	connectTimeout: 5000,
-	reconnectInterval: 1000,
+	heartbeatInterval: 5000,
 	maxReconnectInterval: 30000,
 	reconnectEnabled: true,
 	reconnectFactor: 1.5,
+	reconnectInterval: 1000,
 	reconnectSpreader: 500,
-	heartbeatInterval: 5000,
 	streamAckTimeout: 20000,
-}
+};
 
 /**
  * The sequence counter for sent websocket message payloads. It is automatically
@@ -62,7 +62,6 @@ const PubsDefaultOptions : IPubsOptions = {
  * @private
  */
 let websocketSequence = 0;
-
 
 export class Pubs {
 	public static version: string = __VERSION__;
@@ -73,7 +72,7 @@ export class Pubs {
 	 * @param options Additional options.
 	 */
 	public static init(options: IPubsOptions) {
-		this.defaultOptions = {...PubsDefaultOptions, ...options}
+		this.defaultOptions = {...PubsDefaultOptions, ...options};
 	}
 
 	private static defaultOptions: IPubsOptions;
@@ -110,7 +109,6 @@ export class Pubs {
 	 * whenever [[PubsStreamEvent]]s are triggered.
 	 */
 	public onstreamevent?: (event: PubsStreamEvent ) => void;
-
 
 	private baseURI: string;
 	private options: IPubsOptions;
@@ -175,11 +173,11 @@ export class Pubs {
 			} catch (err) {
 				console.warn('pubs: failed to fetch websocket connection details', err);
 				connectResponse = {
-					streamUrl: '',
 					error: {
 						code: 'request_failed',
 						msg: '' + err,
-					}
+					},
+					streamUrl: '',
 				};
 			}
 			console.debug('connect result', connectResponse);
@@ -234,6 +232,44 @@ export class Pubs {
 	}
 
 	/**
+	 * Encode and send JSON payload data via [[Pubs.socket]] connection.
+	 *
+	 * @param payload The payload data.
+	 * @param replyTimeout Timeout in milliseconds for reply callback. If 0,
+	 *        then no callback is expected and none is registered.
+	 * @returns Promise which resolves when the reply was received or immediately
+	 *          when no timeout was given.
+	 */
+	public async sendStreamWebSocketPayload(payload: IStreamEnvelope, replyTimeout: number = 0): Promise<IStreamEnvelope> {
+		if (replyTimeout === 0) {
+			replyTimeout = this.options.streamAckTimeout;
+		}
+
+		return new Promise<IStreamEnvelope>((resolve, reject) => {
+			if (!this.connected || !this.socket || this.closing) {
+				reject(new Error('no_connection'));
+				return;
+			}
+
+			payload.state = String(++websocketSequence);
+			try {
+				this.socket.send(JSON.stringify(payload));
+			} catch (err) {
+				reject(err);
+				return;
+			}
+			if (replyTimeout > 0) {
+				const timeout = window.setTimeout(() => {
+					reject(new Error('timeout'));
+				}, replyTimeout);
+				this.replyHandlers.set(payload.state, {resolve, timeout});
+			} else {
+				setTimeout(resolve, 0);
+			}
+		});
+	}
+
+	/**
 	 * Unsubscribe from topics.
 	 *
 	 * @param topics The array of topics to subscribe.
@@ -245,15 +281,15 @@ export class Pubs {
 
 	private async pubsub(type: string, topics: string[]): Promise<void> {
 		const payload = {
-			type: type,
-			state: '',
 			info: {
-				'topics': topics,
+				topics,
 			},
+			state: '',
+			type,
 		};
 		return this.sendStreamWebSocketPayload(payload).then(() => {
-			console.log('pubs: send done')
-		})
+			console.log('pubs: send done');
+		});
 	}
 
 	/**
@@ -311,7 +347,7 @@ export class Pubs {
 
 			const url = makeAbsoluteURL(uri).replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
 			console.debug('pubs: connecting stream socket URL', url);
-			const socket = new WebSocket(url+'?v=1');
+			const socket = new WebSocket(url + '?v=1');
 
 			let isTimeout = false;
 			const timeout = setTimeout(() => {
@@ -397,44 +433,6 @@ export class Pubs {
 	}
 
 	/**
-	 * Encode and send JSON payload data via [[Pubs.socket]] connection.
-	 *
-	 * @param payload The payload data.
-	 * @param replyTimeout Timeout in milliseconds for reply callback. If 0,
-	 *        then no callback is expected and none is registered.
-	 * @returns Promise which resolves when the reply was received or immediately
-	 *          when no timeout was given.
-	 */
-	public async sendStreamWebSocketPayload(payload: IStreamEnvelope, replyTimeout: number = 0): Promise<IStreamEnvelope> {
-		if (replyTimeout === 0) {
-			replyTimeout = this.options.streamAckTimeout;
-		}
-
-		return new Promise<IStreamEnvelope>((resolve, reject) => {
-			if (!this.connected || !this.socket || this.closing) {
-				reject(new Error('no_connection'));
-				return;
-			}
-
-			payload.state = String(++websocketSequence);
-			try {
-				this.socket.send(JSON.stringify(payload));
-			} catch (err) {
-				reject(err);
-				return;
-			}
-			if (replyTimeout > 0) {
-				const timeout = window.setTimeout(() => {
-					reject(new Error('timeout'));
-				}, replyTimeout);
-				this.replyHandlers.set(payload.state, {resolve, timeout});
-			} else {
-				setTimeout(resolve, 0);
-			}
-		});
-	}
-
-	/**
 	 * Closes the provided websocket connection.
 	 *
 	 * @param socket Websocket to close.
@@ -470,7 +468,7 @@ export class Pubs {
 				this.connected = false;
 				break;
 			case 'ack':
-				//console.debug('pubs: server ack', message);
+				// console.debug('pubs: server ack', message);
 				const replyTimeout = this.replyHandlers.get(message.state);
 				if (replyTimeout) {
 					this.replyHandlers.delete(message.state);
@@ -481,7 +479,7 @@ export class Pubs {
 				}
 				break;
 			case 'event':
-				//console.debug('pubs: server event', message.data, message.info);
+				// console.debug('pubs: server event', message.data, message.info);
 				this.dispatchStreamEvent(message.data, message.info);
 				break;
 			default:

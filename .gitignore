@@ -1,2 +1,17 @@
 /node_modules
-/dist/docs
+/dist
+/umd
+/docs
+/.version
+/NOTICES.txt
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/.yarninstall
+
+# vim
+*.swp
+
+# misc
+.DS_Store
+.env.local

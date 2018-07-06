@@ -10,8 +10,7 @@
 
 import {
 	IStreamInfo,
-} from './models'
-
+} from './models';
 
 export class PubsBaseEvent {
 	public static eventName = 'PubsBaseEvent';
