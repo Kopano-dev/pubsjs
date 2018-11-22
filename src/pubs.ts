@@ -28,33 +28,12 @@ import {
 	makeAbsoluteURL,
 } from './utils';
 
-const authorizationTypeBearer = 'Bearer';
+export const authorizationTypeBearer = 'Bearer';
 
 export interface IPubsOptions {
-	authorizationValue: string;
-	authorizationType: string;
-	connectTimeout: number;
-	reconnectInterval: number;
-	maxReconnectInterval: number;
-	reconnectEnabled: boolean;
-	reconnectFactor: number;
-	reconnectSpreader: number;
-	heartbeatInterval: number;
-	streamAckTimeout: number;
+	authorizationValue?: string;
+	authorizationType?: string;
 }
-
-const PubsDefaultOptions: IPubsOptions = {
-	authorizationType: authorizationTypeBearer,
-	authorizationValue: '',
-	connectTimeout: 5000,
-	heartbeatInterval: 5000,
-	maxReconnectInterval: 30000,
-	reconnectEnabled: true,
-	reconnectFactor: 1.5,
-	reconnectInterval: 1000,
-	reconnectSpreader: 500,
-	streamAckTimeout: 20000,
-};
 
 interface IPubsConnectionGate {
 	promise?: Promise<void>;
@@ -68,19 +47,33 @@ interface IPubsConnectionGate {
  */
 let websocketSequence = 0;
 
-export class Pubs {
-	public static version: string = __VERSION__;
+/**
+ * PubsInit is a helper constructor to create Pubs interface with settings.
+ */
+export class PubsInit {
+	public static options: any = {
+		connectTimeout: 5000,
+		heartbeatInterval: 5000,
+		maxReconnectInterval: 30000,
+		reconnectEnabled: true,
+		reconnectFactor: 1.5,
+		reconnectInterval: 1000,
+		reconnectSpreader: 500,
+		streamAckTimeout: 20000,
+	};
 
 	/**
 	 * Initialized Pubs defaults with the provided options.
 	 *
 	 * @param options Additional options.
 	 */
-	public static init(options: IPubsOptions) {
-		this.defaultOptions = {...PubsDefaultOptions, ...options};
+	public static init(options: any) {
+		Object.assign(this.options, options);
 	}
+}
 
-	private static defaultOptions: IPubsOptions;
+export class Pubs {
+	public static version: string = __VERSION__;
 
 	/**
 	 * Boolean flag wether Pubs is currently trying to establish a connection.
@@ -132,7 +125,7 @@ export class Pubs {
 	 */
 	constructor(baseURI: string = '', options?: IPubsOptions) {
 		this.baseURI = baseURI.replace(/\/$/, '');
-		this.options = {...PubsDefaultOptions, ...Pubs.defaultOptions, ...options};
+		this.options = options || {};
 		this.replyHandlers = new Map<string, IStreamReplyTimeoutRecord>();
 		this.gate = {};
 	}
@@ -151,13 +144,13 @@ export class Pubs {
 			if (!this.reconnecting) {
 				return;
 			}
-			let reconnectTimeout = this.options.reconnectInterval;
+			let reconnectTimeout = PubsInit.options.reconnectInterval;
 			if (!fast) {
-				reconnectTimeout *= Math.trunc(Math.pow(this.options.reconnectFactor, this.reconnectAttempts));
-				if (reconnectTimeout > this.options.maxReconnectInterval) {
-					reconnectTimeout = this.options.maxReconnectInterval;
+				reconnectTimeout *= Math.trunc(Math.pow(PubsInit.options.reconnectFactor, this.reconnectAttempts));
+				if (reconnectTimeout > PubsInit.options.maxReconnectInterval) {
+					reconnectTimeout = PubsInit.options.maxReconnectInterval;
 				}
-				reconnectTimeout += Math.floor(Math.random() * this.options.reconnectSpreader);
+				reconnectTimeout += Math.floor(Math.random() * PubsInit.options.reconnectSpreader);
 			}
 			this.reconnector = window.setTimeout(() => {
 				this.connect();
@@ -165,7 +158,7 @@ export class Pubs {
 			this.reconnectAttempts++;
 		};
 
-		this.reconnecting = (this.options.reconnectEnabled || true);
+		this.reconnecting = (PubsInit.options.reconnectEnabled || true);
 		this.connecting = true;
 		this.dispatchStateChangedEvent();
 
@@ -257,7 +250,7 @@ export class Pubs {
 	 */
 	public async sendStreamWebSocketPayload(payload: IStreamEnvelope, replyTimeout: number = 0): Promise<IStreamEnvelope> {
 		if (replyTimeout === 0) {
-			replyTimeout = this.options.streamAckTimeout;
+			replyTimeout = PubsInit.options.streamAckTimeout;
 		}
 
 		return new Promise<IStreamEnvelope>((resolve, reject) => {
@@ -387,7 +380,7 @@ export class Pubs {
 					this.closeStreamWebsocket(socket);
 				}, 0);
 				reject(new Error('connect_timeout'));
-			}, this.options.connectTimeout);
+			}, PubsInit.options.connectTimeout);
 
 			socket.onopen = (event: Event) => {
 				clearTimeout(timeout);

@@ -32,7 +32,6 @@ module.exports = {
 		path: path.resolve(__dirname, 'umd'),
 		publicPath: '/umd/',
 		library: 'Pubs',
-		libraryExport: 'Pubs',
 		libraryTarget: 'umd',
 		umdNamedDefine: true
 	},
