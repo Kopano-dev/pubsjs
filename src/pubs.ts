@@ -28,33 +28,17 @@ import {
 	makeAbsoluteURL,
 } from './utils';
 
-const authorizationTypeBearer = 'Bearer';
+export const authorizationTypeBearer = 'Bearer';
 
 export interface IPubsOptions {
-	authorizationValue: string;
-	authorizationType: string;
-	connectTimeout: number;
-	reconnectInterval: number;
-	maxReconnectInterval: number;
-	reconnectEnabled: boolean;
-	reconnectFactor: number;
-	reconnectSpreader: number;
-	heartbeatInterval: number;
-	streamAckTimeout: number;
+	authorizationValue?: string;
+	authorizationType?: string;
 }
 
-const PubsDefaultOptions: IPubsOptions = {
-	authorizationType: authorizationTypeBearer,
-	authorizationValue: '',
-	connectTimeout: 5000,
-	heartbeatInterval: 5000,
-	maxReconnectInterval: 30000,
-	reconnectEnabled: true,
-	reconnectFactor: 1.5,
-	reconnectInterval: 1000,
-	reconnectSpreader: 500,
-	streamAckTimeout: 20000,
-};
+interface IPubsConnectionGate {
+	promise?: Promise<void>;
+	reject?: () => void;
+}
 
 /**
  * The sequence counter for sent websocket message payloads. It is automatically
@@ -63,19 +47,33 @@ const PubsDefaultOptions: IPubsOptions = {
  */
 let websocketSequence = 0;
 
-export class Pubs {
-	public static version: string = __VERSION__;
+/**
+ * PubsInit is a helper constructor to create Pubs interface with settings.
+ */
+export class PubsInit {
+	public static options: any = {
+		connectTimeout: 5000,
+		heartbeatInterval: 5000,
+		maxReconnectInterval: 30000,
+		reconnectEnabled: true,
+		reconnectFactor: 1.5,
+		reconnectInterval: 1000,
+		reconnectSpreader: 500,
+		streamAckTimeout: 20000,
+	};
 
 	/**
 	 * Initialized Pubs defaults with the provided options.
 	 *
 	 * @param options Additional options.
 	 */
-	public static init(options: IPubsOptions) {
-		this.defaultOptions = {...PubsDefaultOptions, ...options};
+	public static init(options: any) {
+		Object.assign(this.options, options);
 	}
+}
 
-	private static defaultOptions: IPubsOptions;
+export class Pubs {
+	public static version: string = __VERSION__;
 
 	/**
 	 * Boolean flag wether Pubs is currently trying to establish a connection.
@@ -117,6 +115,7 @@ export class Pubs {
 	private reconnector: number = 0;
 	private reconnectAttempts: number = 0;
 	private replyHandlers: Map<string, IStreamReplyTimeoutRecord>;
+	private gate: IPubsConnectionGate;
 
 	/**
 	 * Creates a Pubs instance with the provided parameters.
@@ -126,8 +125,9 @@ export class Pubs {
 	 */
 	constructor(baseURI: string = '', options?: IPubsOptions) {
 		this.baseURI = baseURI.replace(/\/$/, '');
-		this.options = {...PubsDefaultOptions, ...Pubs.defaultOptions, ...options};
+		this.options = options || {};
 		this.replyHandlers = new Map<string, IStreamReplyTimeoutRecord>();
+		this.gate = {};
 	}
 
 	/**
@@ -144,13 +144,13 @@ export class Pubs {
 			if (!this.reconnecting) {
 				return;
 			}
-			let reconnectTimeout = this.options.reconnectInterval;
+			let reconnectTimeout = PubsInit.options.reconnectInterval;
 			if (!fast) {
-				reconnectTimeout *= Math.trunc(Math.pow(this.options.reconnectFactor, this.reconnectAttempts));
-				if (reconnectTimeout > this.options.maxReconnectInterval) {
-					reconnectTimeout = this.options.maxReconnectInterval;
+				reconnectTimeout *= Math.trunc(Math.pow(PubsInit.options.reconnectFactor, this.reconnectAttempts));
+				if (reconnectTimeout > PubsInit.options.maxReconnectInterval) {
+					reconnectTimeout = PubsInit.options.maxReconnectInterval;
 				}
-				reconnectTimeout += Math.floor(Math.random() * this.options.reconnectSpreader);
+				reconnectTimeout += Math.floor(Math.random() * PubsInit.options.reconnectSpreader);
 			}
 			this.reconnector = window.setTimeout(() => {
 				this.connect();
@@ -158,64 +158,72 @@ export class Pubs {
 			this.reconnectAttempts++;
 		};
 
-		this.reconnecting = (this.options.reconnectEnabled || true);
+		this.reconnecting = (PubsInit.options.reconnectEnabled || true);
 		this.connecting = true;
 		this.dispatchStateChangedEvent();
 
 		return new Promise<void>(async (resolve, reject) => {
-			let connectResponse: IStreamWebsocketConnectResponse;
-			let authorizationHeader: string = '';
-			if (this.options.authorizationType && this.options.authorizationValue) {
-				authorizationHeader = this.options.authorizationType + ' ' + this.options.authorizationValue;
-			}
-			try {
-				connectResponse = await this.fetchStreamWebSocketConnect(authorizationHeader);
-			} catch (err) {
-				console.warn('pubs: failed to fetch websocket connection details', err);
-				connectResponse = {
-					error: {
-						code: 'request_failed',
-						msg: '' + err,
-					},
-					streamUrl: '',
-				};
-			}
-			console.debug('connect result', connectResponse);
-			if (!connectResponse.streamUrl) {
-				this.connecting = false;
-				this.dispatchStateChangedEvent();
-				if (this.reconnecting) {
-					if (connectResponse.error && connectResponse.error.code === 'http_error_403') {
-						console.warn('pubs: giving up reconnect, as connect returned forbidden', connectResponse.error.msg);
-						this.reconnecting = false;
-						this.dispatchStateChangedEvent();
-						this.dispatchErrorEvent(connectResponse.error);
+			const gate: IPubsConnectionGate  = this.gate = {};
+			gate.promise = new Promise<void>(async (gateResolve, gateReject) => {
+				gate.reject = gateReject;
+				let connectResponse: IStreamWebsocketConnectResponse;
+				let authorizationHeader: string = '';
+				if (this.options.authorizationType && this.options.authorizationValue) {
+					authorizationHeader = this.options.authorizationType + ' ' + this.options.authorizationValue;
+				}
+				try {
+					connectResponse = await this.fetchStreamWebSocketConnect(authorizationHeader);
+				} catch (err) {
+					console.warn('pubs: failed to fetch websocket connection details', err);
+					connectResponse = {
+						error: {
+							code: 'request_failed',
+							msg: '' + err,
+						},
+						streamUrl: '',
+					};
+				}
+				console.debug('connect result', connectResponse);
+				if (!connectResponse.streamUrl) {
+					this.connecting = false;
+					this.dispatchStateChangedEvent();
+					if (this.reconnecting) {
+						if (connectResponse.error && connectResponse.error.code === 'http_error_403') {
+							console.warn('pubs: giving up reconnect, as connect returned forbidden', connectResponse.error.msg);
+							this.reconnecting = false;
+							this.dispatchStateChangedEvent();
+							this.dispatchErrorEvent(connectResponse.error);
+						}
+						reconnector();
+					} else if (connectResponse.error) {
+						reject(new PubsDataError(connectResponse.error));
+					} else {
+						reject(new PubsDataError({code: 'unknown_error', msg: ''}));
 					}
-					reconnector();
-				} else if (connectResponse.error) {
-					reject(new PubsDataError(connectResponse.error));
-				} else {
-					reject(new PubsDataError({code: 'unknown_error', msg: ''}));
+					return;
 				}
-				return;
-			}
 
-			let streamURL = connectResponse.streamUrl;
-			if (!streamURL.includes('://')) {
-				// Prefix with base when not absolute already.
-				streamURL = this.baseURI + streamURL;
-			}
-			this.connectStreamWebSocket(streamURL, this.reconnecting ? reconnector : undefined).then(() => {
-				this.reconnectAttempts = 0;
-				console.debug('pubs: connection established', this.reconnectAttempts);
-				resolve();
-			}, (err: any) => {
-				console.warn('pubs: connection failed', err, !!this.reconnecting);
-				if (this.reconnecting) {
-					reconnector();
-				} else {
-					reject(err);
+				let streamURL = connectResponse.streamUrl;
+				if (!streamURL.includes('://')) {
+					// Prefix with base when not absolute already.
+					streamURL = this.baseURI + streamURL;
 				}
+				this.connectStreamWebSocket(streamURL, this.reconnecting ? reconnector : undefined).then(() => {
+					this.reconnectAttempts = 0;
+					console.debug('pubs: connection established', this.reconnectAttempts);
+					delete gate.reject;
+					resolve();
+					gateResolve();
+				}, (err: any) => {
+					console.warn('pubs: connection failed', err, !!this.reconnecting);
+					if (this.reconnecting) {
+						reconnector();
+					} else {
+						delete gate.reject;
+						reject(err);
+						gateReject();
+					}
+				});
 			});
 		});
 	}
@@ -242,7 +250,7 @@ export class Pubs {
 	 */
 	public async sendStreamWebSocketPayload(payload: IStreamEnvelope, replyTimeout: number = 0): Promise<IStreamEnvelope> {
 		if (replyTimeout === 0) {
-			replyTimeout = this.options.streamAckTimeout;
+			replyTimeout = PubsInit.options.streamAckTimeout;
 		}
 
 		return new Promise<IStreamEnvelope>((resolve, reject) => {
@@ -287,8 +295,18 @@ export class Pubs {
 			state: '',
 			type,
 		};
-		return this.sendStreamWebSocketPayload(payload).then(() => {
-			console.log('pubs: send done');
+		return new Promise<void>(async (resolve, reject) => {
+			if (!this.gate.promise) {
+				reject(new Error('no gate - connected not called?'));
+				return;
+			}
+
+			this.gate.promise.then(() => {
+				this.sendStreamWebSocketPayload(payload).then(() => {
+					console.log('pubs: send done');
+					resolve();
+				});
+			});
 		});
 	}
 
@@ -362,7 +380,7 @@ export class Pubs {
 					this.closeStreamWebsocket(socket);
 				}, 0);
 				reject(new Error('connect_timeout'));
-			}, this.options.connectTimeout);
+			}, PubsInit.options.connectTimeout);
 
 			socket.onopen = (event: Event) => {
 				clearTimeout(timeout);

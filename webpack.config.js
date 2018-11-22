@@ -25,14 +25,13 @@ module.exports = {
 		extensions: ['.ts', '.js']
 	},
 	entry: [
-		__dirname + '/src/pubs.ts'
+		__dirname + '/src/index.ts'
 	],
 	output: {
 		filename: 'pubs.js',
 		path: path.resolve(__dirname, 'umd'),
 		publicPath: '/umd/',
 		library: 'Pubs',
-		libraryExport: 'Pubs',
 		libraryTarget: 'umd',
 		umdNamedDefine: true
 	},
