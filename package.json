@@ -5,6 +5,7 @@
   "license": "MIT",
   "version": "0.2.0",
   "main": "umd/pubs.js",
+  "types": "umd/src/index.d.ts",
   "files": [
     "umd",
     ".version",
