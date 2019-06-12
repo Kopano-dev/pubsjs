@@ -123,7 +123,7 @@ export class Pubs {
 	 * @param baseURI The base URI to the Pubs server API.
 	 * @param options Additional options.
 	 */
-	constructor(baseURI: string = '', options?: IPubsOptions) {
+	public constructor(baseURI: string = '', options?: IPubsOptions) {
 		this.baseURI = baseURI.replace(/\/$/, '');
 		this.options = options || {};
 		this.replyHandlers = new Map<string, IStreamReplyTimeoutRecord>();
@@ -152,7 +152,7 @@ export class Pubs {
 				}
 				reconnectTimeout += Math.floor(Math.random() * PubsInit.options.reconnectSpreader);
 			}
-			this.reconnector = window.setTimeout(() => {
+			this.reconnector = window.setTimeout((): void => {
 				this.connect();
 			}, reconnectTimeout);
 			this.reconnectAttempts++;
@@ -162,12 +162,12 @@ export class Pubs {
 		this.connecting = true;
 		this.dispatchStateChangedEvent();
 
-		return new Promise<void>(async (resolve, reject) => {
+		return new Promise<void>(async (resolve, reject): Promise<void> => {
 			const gate: IPubsConnectionGate  = this.gate = {};
-			gate.promise = new Promise<void>(async (gateResolve, gateReject) => {
+			gate.promise = new Promise<void>(async (gateResolve, gateReject): Promise<void> => {
 				gate.reject = gateReject;
 				let connectResponse: IStreamWebsocketConnectResponse;
-				let authorizationHeader: string = '';
+				let authorizationHeader = '';
 				if (this.options.authorizationType && this.options.authorizationValue) {
 					authorizationHeader = this.options.authorizationType + ' ' + this.options.authorizationValue;
 				}
@@ -485,7 +485,7 @@ export class Pubs {
 				this.closeStreamWebsocket(this.socket);
 				this.connected = false;
 				break;
-			case 'ack':
+			case 'ack': {
 				// console.debug('pubs: server ack', message);
 				const replyTimeout = this.replyHandlers.get(message.state);
 				if (replyTimeout) {
@@ -496,6 +496,7 @@ export class Pubs {
 					console.log('received ack without handler', message);
 				}
 				break;
+			}
 			case 'event':
 				// console.debug('pubs: server event', message.data, message.info);
 				this.dispatchStreamEvent(message.data, message.info);

@@ -40,7 +40,12 @@ docs: vendor ; $(info building $@ ...) @
 
 .PHONY: lint
 lint: vendor ; $(info running linters ...) @
-	@$(YARN) tslint -p .
+	@$(YARN) eslint . --ext .js,.ts --cache && echo "eslint: no lint errors"
+
+.PHONY: lint-checkstyle
+lint-checkstyle: vendor ; $(info running linters checkstyle ...) @
+	@mkdir -p ./test
+	@$(YARN) eslint -f checkstyle --ext .js,.ts -o ./test/tests.eslint.xml . || true
 
 # Yarn
 

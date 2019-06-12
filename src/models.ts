@@ -47,7 +47,7 @@ export class PubsDataError implements IPubsDataError {
 	public code: string;
 	public msg: string = '';
 
-	constructor(data: IPubsDataError) {
+	public constructor(data: IPubsDataError) {
 		this.code = data.code;
 		if (data.msg) {
 			this.msg = data.msg;
