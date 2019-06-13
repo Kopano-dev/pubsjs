@@ -3,17 +3,26 @@
 pipeline {
 	agent {
 		docker {
-			image 'node:9'
+			image 'node:10'
 			args '-u 0'
 		}
 	}
+	environment {
+		CI = 'true'
+	}
 	stages {
-		stage('build') {
+		stage('Lint') {
+			steps {
+				sh 'make lint-checkstyle'
+				checkstyle pattern: 'test/tests.eslint.xml', canComputeNew: false, unstableTotalHigh: '0', thresholdLimit: 'high'
+			}
+		}
+		stage('Build') {
 			steps {
 				sh 'make'
 			}
 		}
-		stage('dist') {
+		stage('Dist') {
 			when {
 				branch 'master'
 			}
@@ -23,9 +32,9 @@ pipeline {
 			}
 		}
 	}
-    post {
-        always {
-            cleanWs()
-        }
-    }
+	post {
+		always {
+			cleanWs()
+		}
+	}
 }

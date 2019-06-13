@@ -20,7 +20,7 @@ export class PubsBaseEvent {
 
 	public target: any;
 
-	constructor(target: any) {
+	public constructor(target: any) {
 		this.target = target;
 	}
 }
@@ -32,7 +32,7 @@ export class PubsStateChangedEvent extends PubsBaseEvent {
 	public connected: boolean;
 	public reconnecting: boolean;
 
-	constructor(target: any) {
+	public constructor(target: any) {
 		super(target);
 
 		this.connecting = target.connecting;
@@ -47,7 +47,7 @@ export class PubsStreamEvent extends PubsBaseEvent {
 	public data: any;
 	public info?: IStreamInfo;
 
-	constructor(target: any, data: any, info?: IStreamInfo) {
+	public constructor(target: any, data: any, info?: IStreamInfo) {
 		super(target);
 
 		this.data = data;
@@ -61,7 +61,7 @@ export class PubsErrorEvent extends PubsBaseEvent {
 	public code: string;
 	public msg: string;
 
-	constructor(target: any, details: any) {
+	public constructor(target: any, details: any) {
 		super(target);
 
 		this.code = details.code;
